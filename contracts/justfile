@@ -1,0 +1,6 @@
+set dotenv-path := "./lib/QryptoRand/.env"
+set dotenv-load := true
+
+deploy-lottery:
+    forge create --rpc-url $ETH_RPC_URL --private-key $PRIVATE_KEY_WALLET --root . src/IQryptoLottery.sol:Lottery --broadcast --value 1000ether --constructor-args $STORAGE_ADDRESS $TOKEN_ADDRESS
+    forge script ./scripts/fundLottery.s.sol:FundLottery --rpc-url $ETH_RPC_URL --private-key $PRIVATE_KEY_WALLET --broadcast

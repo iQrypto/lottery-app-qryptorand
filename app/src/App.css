@@ -1,0 +1,483 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+body {
+  margin: 0;
+  font-family: 'Poppins', sans-serif;
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+h1 {
+  color: #BC25FF;
+  font-size: 2.7rem;
+  margin-bottom: 20px;
+}
+
+h3 {
+  margin-top: 40px;
+  font-size: 1.4rem;
+}
+
+h4 {
+  font-size: 1rem;
+  color: #555;
+  margin-bottom: 6px;
+}
+
+.header {
+  background-color: #f3f4fa;
+  border-bottom: 1px solid #ddd;
+  padding: 16px 20px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  font-size: 50px;
+  z-index: 10;
+}
+
+
+.logo-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.3rem;
+  font-weight: bold;
+  justify-content: center;
+}
+
+.right-buttons,
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* Responsive header */
+@media (max-width: 600px) {
+  .header {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    row-gap: 12px;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .right-buttons {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .logo-wrapper {
+    justify-content: center;
+  }
+
+  .left-placeholder {
+    display: none;
+  }
+}
+
+.header-button {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 110px;
+  height: 40px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  border-radius: 20px;
+  background-color: #BC25FF;
+  color: #F3F4Fa;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.button,
+button,
+a.button {
+  background: #BC25FF;
+  color: #F3F4Fa;
+  border: none;
+  padding: 12px 24px;
+  margin: 8px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: background 0.2s ease;
+  text-decoration: none;
+  display: inline-block;
+  min-width: 120px;
+}
+
+.button.small {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+button:hover,
+a.button:hover {
+  background: #BC25FF;
+}
+
+.input {
+  padding: 10px 14px;
+  border: 2px solid #BC25FF;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-family: 'Poppins', sans-serif;
+  outline: none;
+  transition: border-color 0.3s ease;
+  background-color: #f3f4fa;
+  color: #333;
+  min-width: 120px;
+}
+
+.input:focus {
+  border-color: #BC25FF;
+  box-shadow: 0 0 0 3px rgba(188, 37, 255, 0.2);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+  justify-items: center;
+}
+
+.number-box {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  border: 2px solid #BC25FF;
+  color: #BC25FF;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 60px;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.7s ease;
+}
+
+.number-box.selected {
+  background: linear-gradient(180deg, #BC25FF, #961DCC);
+  color: #F3F4Fa;
+}
+
+.number-box.disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.number-box.drawn {
+  background: #f44336;
+  color: #333;
+}
+
+.number-box.drawn-match {
+  background: #00e676;
+  color: #F3F4Fa;
+  font-weight: bold;
+}
+
+.wallet-address {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #555;
+}
+
+.container,
+.main-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.main-layout {
+  position: relative;
+}
+
+.wallet-address-float {
+  position: absolute;
+  top: 1rem;
+  right: 2rem;
+  background-color: #eee;
+  color: #333;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  font-size: 0.975rem;
+  z-index: 10;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar {
+  width: 320px;
+  padding: 24px;
+  border-right: 1px solid #ddd;
+  background-color: #F3F4Fa;
+  min-height: 100vh;
+  box-shadow: 4px 0 8px rgba(0, 0, 0, 0.02);
+  overflow-y: auto;
+  position: fixed;
+  top: 64px;
+  left: 0;
+  bottom: 0;
+}
+
+.sidebar h3 {
+  margin-top: 0;
+  color: #BC25FF;
+}
+
+.sidebar p {
+  font-size: 0.95rem;
+  margin: 2px 0 8px;
+}
+
+.sidebar .balance {
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.balance.positive {
+  color: #1abc9c;
+}
+
+.balance.negative {
+  color: #e74c3c;
+}
+
+.sidebar-toggle-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  background-color: #f9f9fb;
+  border: 1px solid #ccc;
+  border-radius: 50%;
+  color: #555;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.result-banner {
+  padding: 20px 30px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  text-align: center;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  font-size: 1.8rem;
+  font-weight: bold;
+}
+
+.result-banner.win {
+  background-color: #d4edda;
+  color: #155724;
+  border: 2px solid #c3e6cb;
+}
+
+.result-banner.lose {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 2px solid #f5c6cb;
+}
+
+.bet-controls {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 30px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+
+.checkbox-group {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #333;
+}
+
+input[type="checkbox"] {
+  transform: scale(1.2);
+  margin-left: 8px;
+}
+
+.history-entry {
+  padding: 12px 0;
+  border-bottom: 1px solid #eee;
+  font-size: 0.95rem;
+}
+
+.history-entry:last-child {
+  border-bottom: none;
+}
+
+.toggle-history {
+  background: none;
+  border: none;
+  color: #BC25FF;
+  cursor: pointer;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.error-message {
+  color: red;
+  margin-top: 10px;
+}
+
+.sidebar-toggle-button,
+.sidebar-open-button {
+  background-color: #BC25FF;
+  color: #F3F4Fa;
+  border: none;
+  border-radius: 20px;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.sidebar-open-button {
+  position: fixed;
+  top: 52%;
+  left: 0;
+  transform: translateY(-50%);
+}
+
+.sidebar-toggle-button {
+  position: absolute;
+  top: 45%;
+  right: 7%;
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.logo-title {
+  font-size: 2rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.queno {
+  color: #BC25FF;
+  background: linear-gradient(90deg, #BC25FF, #961DCC);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.bet-panel {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  background: #F3F4Fa;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.06);
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.bet-summary {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.summary-item .label {
+  font-weight: 500;
+  margin-right: 0.5rem;
+  color: #555;
+}
+
+.bet-settings {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.form-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.autopick-check {
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.bet-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.button.primary {
+  background-color: #a000f0;
+  color: #F3F4Fa;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 0.6rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.button.secondary {
+  background-color: #F3F4Fa;
+  color: #333;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 0.6rem;
+  cursor: pointer;
+}
+
+.spinner {
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-top: 3px solid #3498db;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  animation: spin 0.6s linear infinite;
+  display: inline-block;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+

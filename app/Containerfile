@@ -1,0 +1,23 @@
+FROM node:latest AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+RUN npm run build
+
+FROM nginx:alpine
+
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Optional: replace default nginx config if needed
+# COPY nginx.conf /etc/nginx/nginx.conf
+
+# Expose port (default for nginx)
+EXPOSE 80
+
+# Start Nginx
+CMD ["nginx", "-g", "daemon off;"]
+
