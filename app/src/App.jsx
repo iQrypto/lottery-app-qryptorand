@@ -1,270 +1,156 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import { createPath, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import iqryptoLogo from './typo_colors.png';
-import { ethers } from "ethers";
-import { abis, addresses } from "./abis";
-import { ErrorDecoder } from 'ethers-decode-error'
+import { ethers } from 'ethers';
+import { abis, addresses } from './abis';
 
-const NUMBER_COUNT = 32;
-const MAX_SELECTION = 4;
-const MIN_BET = 0.0001;
-const MAX_BET = 5;
-const QRN_PRICE = 0.0003;
-
-const errorDecoder = ErrorDecoder.create([abis.lottery, abis.token]);
-
-/**
- * Generate pseudo-random numbers for auto-pick mode.
- * This function is only used for client-side number selection,
- * not for generating the actual lottery numbers (which are on-chain).
- * 
- * @param {number} count - Number of unique values to generate.
- * @param {number} max - Maximum value (inclusive upper bound).
- * @returns {number[]} Array of unique random integers between 1 and `max`.
- */
-const generateRandomNumbers = (count, max) => {
-  const nums = new Set();
-  while (nums.size < count) {
-    nums.add(Math.floor(Math.random() * max) + 1);
-  }
-  return Array.from(nums);
-};
-
+// Minimal ABI for StorageNumber to read the QRN price
+const STORAGE_ABI = [
+  {
+    inputs: [],
+    name: 'QRN_PRICE',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+];
 
 const App = () => {
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState('');
-  const [lotteryContract, setLotteryContract] = useState(null);
-  const [tokenContract, setTokenContract] = useState(null);
-  const [selectedNumbers, setSelectedNumbers] = useState([]);
-  const [autoPick, setAutoPick] = useState(false);
-  const [betAmount, setBetAmount] = useState(MIN_BET);
-  const [currency, setCurrency] = useState('ETH');
-  const [drawnNumbers, setDrawnNumbers] = useState([]);
-  const [betResult, setBetResult] = useState(null);
-  const [finalSelection, setFinalSelection] = useState([]);
-  const [finalCurrency, setFinalCurrency] = useState(currency);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [history, setHistory] = useState([]);
-  const [showAllHistory, setShowAllHistory] = useState(false);
-  const [showLeftSidebar, setShowLeftSidebar] = useState(true);
-  const [betAmountError, _setBetAmountError] = useState('');
-  const [isWaitingForResult, setIsWaitingForResult] = useState(false);
-
-  /**
-   * Resets game state (but not wallet or history).
-   * Clears selected numbers, drawn numbers, result, and errors.
-   */
-  const ResetGameState = () => {
-    setSelectedNumbers([]);
-    setDrawnNumbers([]);
-    setBetResult(null);
-    setFinalSelection([]);
-    setFinalCurrency(currency);
-    setErrorMessage('');
-    setAutoPick(false);
-  };
+  const [lottery, setLottery] = useState(null);
+  const [qrnPrice, setQrnPrice] = useState(null); // BigInt (wei)
+  const [password, setPassword] = useState('');
+  const [randomHex, setRandomHex] = useState('');
+  const [length, setLength] = useState(16);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (autoPick && !betResult) {
-      setSelectedNumbers(generateRandomNumbers(MAX_SELECTION, NUMBER_COUNT));
+    // Auto-connect if wallet already authorized (best-effort)
+    if (window.ethereum && window.ethereum.selectedAddress) {
+      connectWallet();
     }
-  }, [autoPick, betResult]);
+  }, []);
 
-  /**
-  * Connects the user's wallet (MetaMask) and initializes the lottery contract.
-  * Sets the wallet address and provider signer on success.
-  */
   const connectWallet = async () => {
-    const provider = window.ethereum 
-      ? new ethers.BrowserProvider(window.ethereum) 
-      : ethers.getDefaultProvider();
-    
-    const signer = window.ethereum 
-      ? await provider.getSigner() 
-      : null;
+    try {
+      if (!window.ethereum) {
+        setError('No wallet found. Please install MetaMask.');
+        return;
+      }
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      await provider.send('eth_requestAccounts', []);
+      const signer = await provider.getSigner();
+      const addr = await signer.getAddress();
+      const contractAddress = addresses.lottery;
+      const contract = new ethers.Contract(contractAddress, abis.lottery, signer);
 
-    if (signer) {
+      // Ensure there is contract code at the configured address
+      const code = await provider.getCode(contractAddress);
+      if (!code || code === '0x') {
+        setError('No contract code at configured lottery address. Update app/src/abis.jsx.');
+        return;
+      }
+
       setWalletConnected(true);
-      setWalletAddress(signer.getAddress());
-      initContracts(signer);
+      setWalletAddress(addr);
+      setLottery(contract);
+      setError('');
+
+      // Load QRN price from the StorageNumber contract
+      try {
+        const storageAddr = await contract.storageNumber();
+        const storage = new ethers.Contract(storageAddr, STORAGE_ABI, provider);
+        const price = await storage.QRN_PRICE();
+        setQrnPrice(price);
+      } catch (e) {
+        console.error('Failed to load QRN price', e);
+        setError('Failed to read QRN price. Verify contract address and chain.');
+      }
+    } catch (e) {
+      console.error(e);
+      setError('Failed to connect wallet.');
     }
-    
   };
 
-  /**
-  * Initializes the ethers.js contracts instance using the connected signer.
-  * 
-  * @param {ethers.Signer} signer - The connected wallet signer.
-  */
-  const initContracts = async (signer) => {
-    const lotteryContract = new ethers.Contract(addresses.lottery, abis.lottery, signer);
-    const tokenContract = new ethers.Contract(addresses.token, abis.token, signer);
-    const userBalance = await tokenContract.balanceOf(signer.address);
-    const bal = await tokenContract.balanceOf(addresses.lottery);
-    setLotteryContract(lotteryContract);
-    setTokenContract(tokenContract);
-  };
-
-  /**
-  * Disconnects the wallet and clears game-related state.
-  * Resets selection, result, history, and contract reference.
-  */
   const disconnectWallet = () => {
     setWalletConnected(false);
     setWalletAddress('');
-    setHistory([]);
-    setShowAllHistory(false);
-    setLotteryContract(null);
-    setTokenContract(null);
-    ResetGameState();
+    setLottery(null);
+    setQrnPrice(null);
+    setPassword('');
+    setRandomHex('');
+    setError('');
   };
 
-  /**
-  * Toggles the selection of a number.
-  * Only allowed if auto-pick is disabled and no bet result exists.
-  *
-  * @param {number} num - The number to select/deselect (1-based).
-  */
-  const toggleNumber = (num) => {
-    if (autoPick || betResult) return;
-    if (selectedNumbers.includes(num)) {
-      setSelectedNumbers(selectedNumbers.filter((n) => n !== num));
-    } else if (selectedNumbers.length < MAX_SELECTION) {
-      setSelectedNumbers([...selectedNumbers, num]);
+  const derivePassword = (random, size) => {
+    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_-+=[]{};:,.?/|~';
+    const base = charset.length;
+
+    let pool = ethers.getBytes(ethers.toBeHex(random, 32));
+    let out = '';
+    let ctr = 0;
+    while (out.length < size) {
+      for (const b of pool) {
+        out += charset[b % base];
+        if (out.length >= size) break;
+      }
+      ctr += 1;
+      // Expand entropy deterministically if needed
+      const hash = ethers.solidityPackedKeccak256(['bytes', 'uint32'], [pool, ctr]);
+      pool = ethers.getBytes(hash);
     }
+    return out;
   };
 
-  /**
-  * Performs pre-flight validation before placing a bet.
-  * Returns an error message if the app is in an invalid state,
-  * or null if all checks pass.
-  *
-  * @returns {string|null} A human-readable error message or null.
-  */
-  const checkLotteryState = () => {
-    if (isWaitingForResult) return 'Please wait for the previous result.';
-    if (!walletConnected) return 'Please connect your wallet.';
-    if (!lotteryContract) return 'Lottery contract not connected.';
-    if (!tokenContract) return 'Token contract not connected.';
-    if (selectedNumbers.length === 0) return 'No number selected';
-    return null;
-  };
-
-  /**
-  * Submits a bet to the smart contract.
-  * If auto-pick is enabled, it generates a new number selection.
-  * Waits for the `WinningNumbersGenerated` event and updates the UI state accordingly.
-  * Handles contract errors and sets `errorMessage` on failure.
-  */
-  const placeBet = async () => {
-    const bad_state = checkLotteryState();
-    if (bad_state) {
-      setErrorMessage(bad_state);
+  const generatePassword = async () => {
+    if (!walletConnected || !lottery) {
+      setError('Please connect your wallet.');
       return;
     }
-
-    const numeric = parseFloat(betAmount);
-    if (isNaN(numeric) || numeric < MIN_BET || numeric > MAX_BET) {
-      setErrorMessage('Bet amount must be between '+ MIN_BET +' and '+ MAX_BET +'.');
+    if (length < 4 || length > 128) {
+      setError('Length must be between 4 and 128.');
       return;
     }
-
-    let currentSelection = selectedNumbers;
-    if (autoPick) {
-      currentSelection = generateRandomNumbers(MAX_SELECTION, NUMBER_COUNT);
-      setSelectedNumbers(currentSelection);
-    }
-    setIsWaitingForResult(true);
-    setErrorMessage('');
-
     try {
-      const PromiseResult = new Promise((resolve, reject) => {
-        
-        const handleLotteryResult = (
-          _owner,
-          SentselectedNumbers, 
-          drawnRandomNumbers, 
-          finalWinningNumbers,
-          onChainCalcReward,
-          selectedCurrency) => {
-            lotteryContract.off("WinningNumbersGenerated", handleLotteryResult);
-            console.log("Received event!");
-            const selected = Array.from(SentselectedNumbers).map((n) => Number(n));
-            const drawn = Array.from(drawnRandomNumbers).map((n) => Number(n));
-            const winning = Array.from(finalWinningNumbers).map((n) => Number(n));
-            const reward = Number(ethers.formatUnits(onChainCalcReward, "ether"));
-            const lastCurrency = selectedCurrency;
-            resolve({ selected, drawn, winning, reward, lastCurrency });
-          };
-        lotteryContract.on("WinningNumbersGenerated", handleLotteryResult);
-      });
-      let tx;
-      let totalBetAmount = numeric * currentSelection.length;
-      let betValue = ethers.parseUnits((totalBetAmount).toString(), "ether");
-      if (currency === "ETH") {
-        betValue += ethers.parseUnits(QRN_PRICE.toString(), "ether");
-        tx = await lotteryContract.generateLotteryNumbers(
-          currentSelection,
-          0, // No ypto token
-          0, // ether currency enum value
-          {
-            value: betValue,
-          }
-        );
+      setLoading(true);
+      setError('');
+      // Ensure we have a price; if not, attempt to fetch again via contract getter
+      let price = qrnPrice;
+      if (price == null) {
+        const storageAddr = await lottery.storageNumber();
+        const storage = new ethers.Contract(storageAddr, STORAGE_ABI, lottery.runner);
+        price = await storage.QRN_PRICE();
+        setQrnPrice(price);
       }
-      else if (currency === "Ypto") {
-        await tokenContract.approve(addresses.lottery, betValue);
-        tx = await lotteryContract.generateLotteryNumbers(
-          currentSelection,
-          betValue, // value as ypto token
-          1, // ypto currency enum value
-          {
-            value: ethers.parseUnits(QRN_PRICE.toString(), "ether") // QRN price as ether
-          }
-        );
+      if (price == null) {
+        setError('QRN price unavailable. Connect again or check contract address.');
+        setLoading(false);
+        return;
       }
-      console.log("Numbers sent, waiting... for response");
-      await tx.wait();
-      
-      const { selected, drawn, reward } = await PromiseResult;
-      
-      setDrawnNumbers(drawn);
-      setFinalSelection(selected);
-      setBetResult({ matches: selected.filter(n => drawn.includes(n)), reward });
 
-      setHistory(prev => [
-        {
-          selection: selected,
-          drawn,
-          amount: totalBetAmount,
-          currency,
-          reward
-        },
-        ...prev
-      ]);
+      // Call the contract function via a static call to retrieve the uint256
+      // Provide the QRN fee as msg.value so the internal call can succeed
+      const random = await lottery.generateNumber.staticCall({ value: price });
+      const hex = ethers.toBeHex(random, 32);
+      setRandomHex(hex);
+      setPassword(derivePassword(random, Number(length)));
     } catch (e) {
-      const decodedError = await errorDecoder.decode(e);
-      console.log(decodedError);
+      console.error(e);
+      setError('Failed to generate. Ensure contract has QRN feed setup and try again.');
     } finally {
-      setIsWaitingForResult(false);
+      setLoading(false);
     }
   };
 
-  const totals = history.reduce(
-    (acc, entry) => {
-      acc[entry.currency].bet += entry.amount;
-      acc[entry.currency].reward += entry.reward;
-      return acc;
-    },
-    {
-      ETH: { bet: 0, reward: 0 },
-      Ypto: { bet: 0, reward: 0 }
-    }
-  );
-
-  const visibleHistory = showAllHistory ? history : history.slice(0, 5);
+  const copy = async () => {
+    if (!password) return;
+    try {
+      await navigator.clipboard.writeText(password);
+    } catch {}
+  };
 
   return (
     <>
@@ -288,136 +174,53 @@ const App = () => {
         </div>
       </header>
 
-      <div className="main-layout">
+      <div className="main-container">
         {walletConnected && (
-          <div className="wallet-address-float">
-           Connected as : {walletAddress}
-          </div>
-        )}
-        {showLeftSidebar && (
-          <div className="sidebar">
-            <button onClick={() => setShowLeftSidebar(false)} className="sidebar-toggle-button">❯</button>
-            <div style={{ marginTop: 40 }}>
-              <h3>Bet Summary</h3>
-              {['ETH', 'Ypto'].map((cur) => (
-                <div key={cur} style={{ marginBottom: '1rem' }}>
-                  <h4>{cur}</h4>
-                  <p>Total Bet: {totals[cur].bet.toFixed(4)} {cur}</p>
-                  <p>Total Reward: {totals[cur].reward.toFixed(4)} {cur}</p>
-                  <p className={`balance ${totals[cur].reward - totals[cur].bet >= 0 ? 'positive' : 'negative'}`}>
-                    Balance: {(totals[cur].reward - totals[cur].bet).toFixed(4)} {cur}
-                  </p>
-                </div>
-              ))}
-              <h3>History</h3>
-              {history.length === 0 && <p>No bets yet</p>}
-              {visibleHistory.map((entry, index) => (
-                <div key={index} className="history-entry">
-                  <div><strong>Selection:</strong> {entry.selection.slice().sort((a, b) => a - b).join(', ')}</div>
-                  <div><strong>Drawn:</strong> {entry.drawn.slice().sort((a, b) => a - b).join(', ')}</div>
-                  <div><strong>Bet:</strong> {entry.amount.toFixed(4)} {entry.currency}</div>
-                  <div><strong>Reward:</strong> {entry.reward.toFixed(4)} {entry.currency}</div>
-                </div>
-              ))}
-              {history.length > 5 && (
-                <button onClick={() => setShowAllHistory(!showAllHistory)} className="toggle-history">
-                  {showAllHistory ? 'See less' : 'See all'}
-                </button>
-              )}
-            </div>
-          </div>
+          <div className="wallet-address-float">Connected as: {walletAddress}</div>
         )}
 
-        {!showLeftSidebar && (
-          <button onClick={() => setShowLeftSidebar(true)} className="sidebar-open-button">❯</button>
-        )}
+        <h1>Password Generator</h1>
+        <p>Uses on-chain quantum RNG via Lottery.generateNumber()</p>
 
-        <div className="main-container">
-          {betResult && (
-            <div className={`result-banner ${betResult.reward > 0 ? 'win' : 'lose'}`}>
-              <div>{betResult.reward > 0 ? '🎉 You Win!' : '😢 You Lose!'}</div>
-              <div style={{ fontSize: '1.2rem', marginTop: '8px' }}>
-                {`Reward: ${betResult.reward.toFixed(4)} ${finalCurrency}`}
-              </div>
-            </div>
-          )}
+        <div className="bet-controls">
+          <label>
+            Length
+            &nbsp;
+            <input
+              className="input"
+              type="number"
+              min="4"
+              max="128"
+              value={length}
+              onChange={(e) => setLength(Number(e.target.value))}
+            />
+          </label>
 
-          <h3>Select up to {MAX_SELECTION} numbers</h3>
-          <div className="grid">
-            {Array.from({ length: NUMBER_COUNT }, (_, i) => i + 1).map((num) => {
-              const isSelected = selectedNumbers.includes(num);
-              const isDrawn = drawnNumbers.includes(num);
-              const isMatch = isDrawn && finalSelection.includes(num);
-              let classes = 'number-box';
-              if (isSelected) classes += ' selected';
-              if (isDrawn) classes += isMatch ? ' drawn-match' : ' drawn';
-              if (autoPick && !betResult && isSelected) classes += ' auto-picked';
-
-              return (
-                <div key={num} onClick={() => toggleNumber(num)} className={classes}>
-                  {num}
-                </div>
-              );
-            })}
+          <div>
+            <div>QRN Price: {qrnPrice != null ? `${ethers.formatEther(qrnPrice)} ETH` : '—'}</div>
+            <div style={{ fontSize: '0.9rem', color: '#666' }}>Sent as msg.value on call</div>
           </div>
-
-          <p>Numbers selected: {selectedNumbers.length}</p>
-          <p>Total Bet: {(parseFloat(betAmount || 0) * selectedNumbers.length).toFixed(4)} {currency}</p>
-
-          <div className="bet-controls">
-            <div className="bet-amount-field">
-              <label>
-                Set bet amount &nbsp;
-                <input
-                  type="number"
-                  step= {MIN_BET.toString()}
-                  min={MIN_BET.toString()}
-                  max={MAX_BET.toString()}
-                  value={betAmount}
-                  onChange={(e) => setBetAmount(e.target.value)}
-                  className="input"
-                />
-              </label>
-              {betAmountError && <div className="error-message">{betAmountError}</div>}
-            </div>
-
-            <label>
-              Currency &nbsp;
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                className="input"
-              >
-                <option value="ETH">ETH</option>
-                <option value="Ypto">Ypto</option>
-              </select>
-            </label>
-          </div>
-
-          <div className="checkbox-group">
-            <label htmlFor="autopick">
-              <input
-                id="autopick"
-                type="checkbox"
-                checked={autoPick}
-                onChange={() => {
-                  if (!betResult) setAutoPick(!autoPick);
-                }}
-              />
-              Auto Pick
-            </label>
-          </div>
-
-          <div style={{ marginTop: 10 }}>
-            <button onClick={ResetGameState} className="button">Clear</button>
-            <button onClick={placeBet} className="button" disabled={isWaitingForResult}>
-              {isWaitingForResult ? 'Betting...' : 'Bet'}
-              {isWaitingForResult && <span className="spinner" />}
-            </button>
-          </div>
-
-          {errorMessage && <div className="error-message">{errorMessage}</div>}
         </div>
+
+        <div style={{ marginTop: 10 }}>
+          <button onClick={generatePassword} className="button" disabled={loading || !walletConnected}>
+            {loading ? 'Generating…' : 'Generate'}
+          </button>
+          {password && (
+            <button onClick={copy} className="button">Copy</button>
+          )}
+        </div>
+
+        {error && <div className="error-message">{error}</div>}
+
+        {password && (
+          <div style={{ marginTop: 20 }}>
+            <h3>Your Password</h3>
+            <div className="input" style={{ display: 'inline-block' }}>{password}</div>
+            <h4 style={{ marginTop: 16 }}>Random u256</h4>
+            <div className="input" style={{ display: 'inline-block', wordBreak: 'break-all' }}>{randomHex}</div>
+          </div>
+        )}
       </div>
     </>
   );

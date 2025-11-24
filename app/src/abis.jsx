@@ -7,7 +7,7 @@ const abis = {
 };
 
 const addresses = {
-  lottery: "0xe6b98F104c1BEf218F3893ADab4160Dc73Eb8367",
+  lottery: "0x5C7c905B505f0Cf40Ab6600d05e677F717916F6B",
   token: "0x8464135c8F25Da09e49BC8782676a84730C318bC",
 };
 
