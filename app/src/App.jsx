@@ -29,9 +29,19 @@ const App = () => {
 
   useEffect(() => {
     // Auto-connect if wallet already authorized (best-effort)
-    if (window.ethereum && window.ethereum.selectedAddress) {
-      connectWallet();
-    }
+    const maybeReconnect = async () => {
+      if (!window.ethereum) return;
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const accounts = await provider.listAccounts();
+        if (accounts.length > 0) {
+          await connectWallet();
+        }
+      } catch (e) {
+        console.error('Autoconnect failed', e);
+      }
+    };
+    maybeReconnect();
   }, []);
 
   const connectWallet = async () => {
@@ -41,6 +51,11 @@ const App = () => {
         return;
       }
       const provider = new ethers.BrowserProvider(window.ethereum);
+       const network = await provider.getNetwork();
+       if (network.chainId !== 11155111n) {
+         setError('Wrong network. Please switch MetaMask to Sepolia.');
+         return;
+       }
       await provider.send('eth_requestAccounts', []);
       const signer = await provider.getSigner();
       const addr = await signer.getAddress();
@@ -131,9 +146,10 @@ const App = () => {
         return;
       }
 
-      // Call the contract function via a static call to retrieve the uint256
-      // Provide the QRN fee as msg.value so the internal call can succeed
+      // Simulate to get the random result, then send the real tx to execute
       const random = await lottery.generateNumber.staticCall({ value: price });
+      const tx = await lottery.generateNumber({ value: price });
+      await tx.wait();
       const hex = ethers.toBeHex(random, 32);
       setRandomHex(hex);
       setPassword(derivePassword(random, Number(length)));

@@ -7,8 +7,8 @@ const abis = {
 };
 
 const addresses = {
-  lottery: "0x5C7c905B505f0Cf40Ab6600d05e677F717916F6B",
-  token: "0x8464135c8F25Da09e49BC8782676a84730C318bC",
+  lottery: "0xD62730dC5Cc38653b548d35f0f84fF383D133151",
+  token: "0xB2c4fFf246F7c525De3f94532E6Dd9E39fBf372D",
 };
 
 export { abis, addresses};
